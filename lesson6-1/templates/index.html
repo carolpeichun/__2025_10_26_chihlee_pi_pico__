@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧家居監控系統</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    
+    <!-- Socket.IO -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <!-- 自訂樣式 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <div class="row mb-4">
+            <div class="col-12">
+                <h1 class="text-center mb-4">智慧家居監控系統</h1>
+                <div class="text-center">
+                    <span id="connection-status" class="status-badge status-disconnected">未連接</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 電燈狀態卡片 -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">電燈狀態</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="light-status">
+                            <div id="light-indicator" class="light-indicator off">
+                                <span>關</span>
+                            </div>
+                            <div class="light-status-text" id="light-text">電燈：關閉</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 溫度和溼度數值卡片 -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">客廳溫度</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="value-display">
+                            <div class="value-label">溫度</div>
+                            <div>
+                                <span id="temperature-value" class="value-number">--</span>
+                                <span class="value-unit">°C</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">客廳溼度</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="value-display">
+                            <div class="value-label">溼度</div>
+                            <div>
+                                <span id="humidity-value" class="value-number">--</span>
+                                <span class="value-unit">%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 溫溼度圖表卡片 -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">溫溼度歷史圖表</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="chart-container">
+                            <canvas id="temperatureHumidityChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        // 初始化 Socket.IO 連接
+        const socket = io();
+        
+        // 連接狀態管理
+        socket.on('connect', function() {
+            document.getElementById('connection-status').textContent = '已連接';
+            document.getElementById('connection-status').className = 'status-badge status-connected';
+        });
+        
+        socket.on('disconnect', function() {
+            document.getElementById('connection-status').textContent = '未連接';
+            document.getElementById('connection-status').className = 'status-badge status-disconnected';
+        });
+
+        // 初始化圖表數據
+        const chartData = {
+            labels: [],
+            temperature: [],
+            humidity: []
+        };
+
+        // 建立 Chart.js 圖表
+        const ctx = document.getElementById('temperatureHumidityChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: chartData.labels,
+                datasets: [
+                    {
+                        label: '溫度 (°C)',
+                        data: chartData.temperature,
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        tension: 0.4,
+                        fill: true
+                    },
+                    {
+                        label: '溼度 (%)',
+                        data: chartData.humidity,
+                        borderColor: 'rgb(54, 162, 235)',
+                        backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        yAxisID: 'y1'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: {
+                    mode: 'index',
+                    intersect: false,
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top'
+                    },
+                    tooltip: {
+                        enabled: true
+                    }
+                },
+                scales: {
+                    x: {
+                        title: {
+                            display: true,
+                            text: '時間'
+                        },
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45
+                        }
+                    },
+                    y: {
+                        type: 'linear',
+                        display: true,
+                        position: 'left',
+                        title: {
+                            display: true,
+                            text: '溫度 (°C)'
+                        }
+                    },
+                    y1: {
+                        type: 'linear',
+                        display: true,
+                        position: 'right',
+                        title: {
+                            display: true,
+                            text: '溼度 (%)'
+                        },
+                        grid: {
+                            drawOnChartArea: false
+                        }
+                    }
+                }
+            }
+        });
+
+        // 更新電燈狀態
+        function updateLightStatus(status) {
+            const indicator = document.getElementById('light-indicator');
+            const text = document.getElementById('light-text');
+            
+            if (status && (status.toString().toLowerCase() === 'on' || status.toString().toLowerCase() === '開' || status === 1 || status === '1')) {
+                indicator.className = 'light-indicator on';
+                indicator.innerHTML = '<span>開</span>';
+                text.textContent = '電燈：開啟';
+            } else {
+                indicator.className = 'light-indicator off';
+                indicator.innerHTML = '<span>關</span>';
+                text.textContent = '電燈：關閉';
+            }
+        }
+
+        // 更新溫度顯示
+        function updateTemperature(value) {
+            const tempElement = document.getElementById('temperature-value');
+            if (value !== null && value !== undefined) {
+                tempElement.textContent = parseFloat(value).toFixed(1);
+            } else {
+                tempElement.textContent = '--';
+            }
+        }
+
+        // 更新溼度顯示
+        function updateHumidity(value) {
+            const humElement = document.getElementById('humidity-value');
+            if (value !== null && value !== undefined) {
+                humElement.textContent = parseFloat(value).toFixed(1);
+            } else {
+                humElement.textContent = '--';
+            }
+        }
+
+        // 更新圖表（單個數據點）
+        function updateChart(temperature, humidity) {
+            const now = new Date();
+            const timeLabel = now.toLocaleTimeString('zh-TW');
+            
+            // 限制數據點數量（保留最近 100 個點）
+            if (chartData.labels.length >= 100) {
+                chartData.labels.shift();
+                chartData.temperature.shift();
+                chartData.humidity.shift();
+            }
+            
+            chartData.labels.push(timeLabel);
+            
+            // 處理溫度數據
+            let tempValue = null;
+            if (temperature !== null && temperature !== undefined && !isNaN(temperature)) {
+                tempValue = parseFloat(temperature);
+            }
+            chartData.temperature.push(tempValue);
+            
+            // 處理溼度數據
+            let humValue = null;
+            if (humidity !== null && humidity !== undefined && !isNaN(humidity)) {
+                humValue = parseFloat(humidity);
+            }
+            chartData.humidity.push(humValue);
+            
+            // 更新圖表數據
+            chart.data.labels = chartData.labels;
+            chart.data.datasets[0].data = chartData.temperature;
+            chart.data.datasets[1].data = chartData.humidity;
+            
+            // 更新圖表
+            chart.update('none'); // 'none' 模式可以更平滑地更新
+        }
+        
+        // 載入歷史數據到圖表
+        function loadHistoryData(historyData) {
+            if (!historyData || historyData.length === 0) {
+                console.log('歷史數據為空，等待即時數據...');
+                return;
+            }
+            
+            console.log('開始載入歷史數據到圖表，共', historyData.length, '筆');
+            
+            // 清空現有數據
+            chartData.labels = [];
+            chartData.temperature = [];
+            chartData.humidity = [];
+            
+            // 載入歷史數據
+            historyData.forEach(function(item) {
+                // 格式化時間戳記
+                let timeLabel = item.timestamp || '';
+                if (timeLabel) {
+                    try {
+                        // 嘗試解析時間字串（格式：2025-12-03 15:30:45）
+                        const dateStr = timeLabel.toString();
+                        if (dateStr.includes(' ')) {
+                            const [datePart, timePart] = dateStr.split(' ');
+                            const [year, month, day] = datePart.split('-');
+                            const [hour, minute, second] = timePart.split(':');
+                            const date = new Date(year, month - 1, day, hour, minute, second);
+                            if (!isNaN(date.getTime())) {
+                                timeLabel = date.toLocaleTimeString('zh-TW');
+                            } else {
+                                timeLabel = timePart || timeLabel;
+                            }
+                        } else {
+                            timeLabel = dateStr;
+                        }
+                    } catch (e) {
+                        console.warn('時間解析失敗:', timeLabel, e);
+                        timeLabel = timeLabel.split(' ')[1] || timeLabel;
+                    }
+                }
+                
+                chartData.labels.push(timeLabel);
+                
+                // 處理溫度數據
+                let tempValue = null;
+                if (item.temperature !== null && item.temperature !== undefined) {
+                    const temp = parseFloat(item.temperature);
+                    if (!isNaN(temp)) {
+                        tempValue = temp;
+                    }
+                }
+                chartData.temperature.push(tempValue);
+                
+                // 處理溼度數據
+                let humValue = null;
+                if (item.humidity !== null && item.humidity !== undefined) {
+                    const hum = parseFloat(item.humidity);
+                    if (!isNaN(hum)) {
+                        humValue = hum;
+                    }
+                }
+                chartData.humidity.push(humValue);
+            });
+            
+            // 更新圖表數據
+            chart.data.labels = chartData.labels;
+            chart.data.datasets[0].data = chartData.temperature;
+            chart.data.datasets[1].data = chartData.humidity;
+            
+            // 更新圖表
+            chart.update();
+            
+            console.log('歷史數據已載入到圖表，標籤數:', chartData.labels.length);
+            
+            // 更新最新數據顯示
+            if (historyData.length > 0) {
+                const latest = historyData[historyData.length - 1];
+                if (latest.light) {
+                    updateLightStatus(latest.light);
+                }
+                if (latest.temperature !== null && latest.temperature !== undefined) {
+                    updateTemperature(latest.temperature);
+                }
+                if (latest.humidity !== null && latest.humidity !== undefined) {
+                    updateHumidity(latest.humidity);
+                }
+            }
+        }
+        
+        // 從 API 載入歷史數據
+        function fetchHistoryData() {
+            fetch('/api/history?limit=300')
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(result => {
+                    console.log('API 回應:', result);
+                    if (result.success && result.data) {
+                        console.log('載入歷史數據:', result.count, '筆');
+                        if (result.data.length > 0) {
+                            loadHistoryData(result.data);
+                        } else {
+                            console.log('歷史數據為空');
+                        }
+                    } else {
+                        console.error('無法載入歷史數據:', result.error || '未知錯誤');
+                    }
+                })
+                .catch(error => {
+                    console.error('載入歷史數據時發生錯誤:', error);
+                });
+        }
+        
+        // 頁面載入時讀取歷史數據
+        window.addEventListener('DOMContentLoaded', function() {
+            fetchHistoryData();
+        });
+
+        // 監聽數據更新
+        socket.on('data_update', function(data) {
+            console.log('收到數據更新:', data);
+            
+            // 更新電燈狀態
+            if (data.light !== undefined) {
+                updateLightStatus(data.light);
+            }
+            
+            // 更新溫度
+            if (data.temperature !== undefined) {
+                updateTemperature(data.temperature);
+            }
+            
+            // 更新溼度
+            if (data.humidity !== undefined) {
+                updateHumidity(data.humidity);
+            }
+            
+            // 更新圖表（只有當溫度和溼度都有值時才更新）
+            if (data.temperature !== undefined || data.humidity !== undefined) {
+                updateChart(data.temperature, data.humidity);
+            }
+        });
+    </script>
+</body>
+</html>
+
