@@ -113,8 +113,11 @@ lesson6-1/
 ├── config.py              # 配置檔案
 ├── requirements.txt       # Python 套件依賴
 ├── README.md              # 本說明文件
+<<<<<<< HEAD
 ├── PICO_SETUP.md          # Pico MQTT 發送設定指南
 ├── SETUP_CHECKLIST.md     # Pico 連接設定檢查清單
+=======
+>>>>>>> ab57c2772facd8ec3a250868326acf0f43fbc628
 ├── templates/
 │   └── index.html         # 前端介面
 ├── static/
@@ -134,7 +137,111 @@ lesson6-1/
 - 溫度主題：`客廳/溫度`
 - 溼度主題：`客廳/溼度`
 
+<<<<<<< HEAD
 詳細的訊息格式說明、Pico 程式碼範例和設定指南，請參考 [PICO_SETUP.md](PICO_SETUP.md)。
+=======
+---
+
+### 方式一：純文字格式（最簡單，適合 Pico 直接發送）
+
+只要把「狀態或數值」當成字串發送即可，系統會自動解析：
+
+- 電燈：可以是「開／關」或「on／off」
+- 溫度：可以是 `26.5` 或 `26.5度`
+- 溼度：可以是 `60` 或 `60%`
+
+例如（以 MicroPython 為例）：
+
+```python
+# 電燈狀態
+client.publish("客廳/電燈", "開")
+
+# 溫度（可帶單位）
+client.publish("客廳/溫度", "26.5度")
+
+# 溼度（可帶 %）
+client.publish("客廳/溼度", "60%")
+```
+
+在後端中，如果不是 JSON，會自動包成：
+
+```json
+{ "value": "<你發送的字串>" }
+```
+
+---
+
+### 方式二：JSON 格式（結構化資料）
+
+若希望一次發送更多欄位或保留結構，可以使用 JSON 格式。
+
+### 電燈狀態
+```json
+{
+  "status": "on"
+}
+```
+或
+```json
+{
+  "value": "開"
+}
+```
+
+### 溫度
+```json
+{
+  "temperature": 25.5
+}
+```
+或
+```json
+{
+  "value": 25.5
+}
+```
+
+### 溼度
+```json
+{
+  "humidity": 60.0
+}
+```
+或
+```json
+{
+  "value": 60.0
+}
+```
+
+### 組合訊息
+也可以一次發送多個數據：
+```json
+{
+  "light": "on",
+  "temperature": 25.5,
+  "humidity": 60.0
+}
+```
+
+對於 MicroPython 裝置，可以這樣發送：
+
+```python
+import json
+
+data = {
+    "light": "on",
+    "temperature": 25.5,
+    "humidity": 60.0
+}
+
+client.publish("客廳/溫度", json.dumps(data))
+```
+
+> 提醒：後端會同時看「主題名稱」與「JSON 內容」，所以你可以：
+> - 用各自的主題（`客廳/電燈`、`客廳/溫度`、`客廳/溼度`）搭配簡單純文字格式  
+> - 或是用其中一個主題發送「組合 JSON」，系統也能解析並更新三種資料
+>>>>>>> ab57c2772facd8ec3a250868326acf0f43fbc628
 
 ## 使用說明
 
@@ -151,18 +258,24 @@ lesson6-1/
 - Excel 檔案會自動建立，無需手動建立 `data` 目錄
 - 如果 MQTT 連接失敗，請檢查 `config.py` 中的 Broker 設定
 
+<<<<<<< HEAD
 ## 相關文件
 
 - **[PICO_SETUP.md](PICO_SETUP.md)**：Pico MQTT 發送設定指南，包含訊息格式說明、程式碼範例和設定步驟
 - **[SETUP_CHECKLIST.md](SETUP_CHECKLIST.md)**：Pico 連接設定檢查清單，包含詳細的設定檢查步驟和疑難排解
 
+=======
+>>>>>>> ab57c2772facd8ec3a250868326acf0f43fbc628
 ## 疑難排解
 
 ### MQTT 連接失敗
 - 確認 MQTT Broker 正在運行：`systemctl status mosquitto`（如果使用 Mosquitto）
 - 檢查防火牆設定
 - 確認 `config.py` 中的 Broker 位址和埠號正確
+<<<<<<< HEAD
 - 如需讓 Pico 連接，請參考 [SETUP_CHECKLIST.md](SETUP_CHECKLIST.md)
+=======
+>>>>>>> ab57c2772facd8ec3a250868326acf0f43fbc628
 
 ### 無法訪問 Web 介面
 - 確認應用程式正在運行
@@ -173,7 +286,10 @@ lesson6-1/
 - 確認 MQTT 訊息正在發送到正確的主題
 - 檢查瀏覽器控制台是否有錯誤訊息
 - 確認 WebSocket 連接正常（查看頁面上的連接狀態）
+<<<<<<< HEAD
 - 如需設定 Pico 發送訊息，請參考 [PICO_SETUP.md](PICO_SETUP.md)
+=======
+>>>>>>> ab57c2772facd8ec3a250868326acf0f43fbc628
 
 ## 授權
 
