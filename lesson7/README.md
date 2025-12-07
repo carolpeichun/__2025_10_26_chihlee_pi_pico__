@@ -24,8 +24,8 @@ lesson7/
 #### 全域變數
 
 ```python
-WIFI_SSID = "xxxx"        # WiFi 名稱
-WIFI_PASSWORD = "xxx"     # WiFi 密碼
+WIFI_SSID = "F602-59 wifi"        # WiFi 名稱
+WIFI_PASSWORD = "raspberry"     # WiFi 密碼
 ```
 
 這是預設的 WiFi 連線資訊，使用者需要手動修改成自己的 WiFi 設定。
@@ -271,3 +271,89 @@ Raspberry Pi Pico W **只支援 2.4GHz WiFi**，不支援 5GHz 頻段。
 - [MicroPython network 模組文件](https://docs.micropython.org/en/latest/library/network.html)
 - [Raspberry Pi Pico W 官方文件](https://www.raspberrypi.com/documentation/microcontrollers/raspberry-pi-pico.html)
 
+## 🔧 錯誤分析：`ECONNRESET` (錯誤碼 104)
+
+這個錯誤表示連線被 Broker 拒絕或重置。最常見的原因是 **Mosquitto MQTT Broker 的設定問題**。
+
+---
+
+### 📋 請在 Raspberry Pi 上檢查以下項目：
+
+#### 1️⃣ 確認 Mosquitto 服務正在運行
+```bash
+sudo systemctl status mosquitto
+```
+
+如果沒有運行，啟動它：
+```bash
+sudo systemctl start mosquitto
+```
+
+---
+
+#### 2️⃣ 檢查 Mosquitto 設定檔（最可能的原因）
+
+Mosquitto 2.0 以後**預設不允許匿名連線**，需要修改設定：
+
+```bash
+sudo nano /etc/mosquitto/mosquitto.conf
+```
+
+在檔案中加入以下內容：
+```
+listener 1883 0.0.0.0
+allow_anonymous true
+```
+
+儲存後重啟服務：
+```bash
+sudo systemctl restart mosquitto
+```
+
+---
+
+#### 3️⃣ 確認防火牆允許 1883 端口
+```bash
+sudo ufw allow 1883
+```
+
+---
+
+#### 4️⃣ 測試 Broker 是否正常運作
+
+在 Raspberry Pi 上執行：
+```bash
+mosquitto_sub -h localhost -t "test" &
+mosquitto_pub -h localhost -t "test" -m "hello"
+```
+
+如果看到 `hello` 輸出，表示 Broker 正常。
+
+---
+
+### 🔐 如果您的 Broker 需要帳號密碼
+
+如果您有設定認證，請告訴我帳號密碼，我幫您修改程式碼加入認證：
+
+```python
+# 有認證的連線方式
+client = MQTTClient(CLIENT_ID, MQTT_BROKER, port=MQTT_PORT, 
+                    user="您的帳號", password="您的密碼")
+```
+
+---
+
+### 📝 快速檢查清單
+
+| 檢查項目 | 指令 |
+|----------|------|
+| Mosquitto 是否運行 | `sudo systemctl status mosquitto` |
+| 查看 Mosquitto 日誌 | `sudo journalctl -u mosquitto -f` |
+| 檢查監聽端口 | `sudo netstat -tlnp \| grep 1883` |
+| 測試本機連線 | `mosquitto_pub -h localhost -t test -m hi` |
+
+---
+
+> 💡 **最常見解法**：在 `/etc/mosquitto/mosquitto.conf` 加入 `listener 1883 0.0.0.0` 和 `allow_anonymous true`，然後重啟 Mosquitto。
+
+請試試看，有問題再告訴我！
